@@ -1,8 +1,0 @@
-# Schema for the configuration files of the validation by batch process module.
-validation_by_batch_process.settings:
-  type: config_object
-  label: 'validation by batch process settings'
-  mapping:
-    example:
-      type: string
-      label: 'Example'
