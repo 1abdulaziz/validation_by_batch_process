@@ -1,0 +1,6 @@
+validation_by_batch_process.settings_form:
+  title: 'validation by batch process'
+  description: 'Configure validation by batch process.'
+  parent: system.admin_config_system
+  route_name: validation_by_batch_process.settings_form
+  weight: 10

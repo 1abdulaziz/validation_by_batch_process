@@ -1,0 +1,31 @@
+validation_by_batch_process.example:
+  path: '/validation-by-batch-process/example'
+  defaults:
+    _title: 'Example'
+    _controller: '\Drupal\validation_by_batch_process\Controller\ValidationByBatchProcessController::build'
+  requirements:
+    _permission: 'access content'
+
+validation_by_batch_process.settings_form:
+  path: '/admin/config/system/validation-by-batch-process'
+  defaults:
+    _title: 'validation by batch process settings'
+    _form: 'Drupal\validation_by_batch_process\Form\SettingsForm'
+  requirements:
+    _permission: 'administer validation_by_batch_process configuration'
+
+validation_by_batch_process.validation_batch_process:
+  path: '/validation'
+  defaults:
+    _title: 'Validation batch process'
+    _form: 'Drupal\validation_by_batch_process\Form\form_1\ValidationBatchProcess'
+  requirements:
+    _permission: 'access content'
+
+validation_by_batch_process.preview_after_validation:
+  path: '/validation/preview'
+  defaults:
+    _title: 'Preview after validation'
+    _form: 'Drupal\validation_by_batch_process\Form\form_1\PreviewAfterValidation'
+  requirements:
+    _permission: 'access content'

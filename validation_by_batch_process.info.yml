@@ -1,0 +1,5 @@
+name: validation by batch process
+type: module
+description: validation by batch process
+package: Custom
+core_version_requirement: ^9 || ^10

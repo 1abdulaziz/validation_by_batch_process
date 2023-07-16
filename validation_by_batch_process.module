@@ -1,0 +1,207 @@
+<?php
+
+use Drupal\file\Entity\File;
+use Drupal\taxonomy\Entity\Vocabulary;
+
+/**
+ * @file
+ * Primary module hooks for validation by batch process module.
+ */
+
+
+/**
+ * Reading CSV file as rows.
+ */
+ function readCsvFile($file_id) {
+  $result = new \stdClass();
+  $result->pass = FALSE;
+  $result->rows = FALSE;
+
+  $csvFile = File::load($file_id);
+  if ($csvFile) {
+    $filename = $csvFile->getFileUri();
+    $handle = fopen($filename,"rb");
+    $rows = [];
+    while (($line = fgetcsv($handle)) !== FALSE) {
+      // Execlude empty lines.
+      if (!preg_match("/^,+$/", implode(',', $line))) {
+        $rows[] = $line;
+      }
+    }
+    $result->pass = TRUE;
+    $result->status = 'ok';
+    $result->rows = $rows;
+  }
+  else {
+    $result->status = 'no_content';
+  }
+  return $result;
+}
+
+/**
+ * Parsing CSV file as rows.
+ */
+ function parseCsvFile($file_id, $data_name) {
+  $result = new \stdClass();
+  $result->pass = FALSE;
+  $result->rows = FALSE;
+  $result->message = 'not_implemented';
+  $errors = [];
+
+  $csvFile = readCsvFile($file_id);
+  if (!$csvFile->pass) {
+    $csvFile->errors = [$data_name, $csvFile->message];
+    return $csvFile;
+  }
+
+  $csv_details = csvDetails($data_name);
+  if (!$csv_details->pass) {
+    $csv_details->errors = [$data_name, $csv_details->message];
+    return $csv_details;
+  }
+
+  // Validating the first row.
+  $expectedFirstRow = $csv_details->data['headers'];
+  $not_valid = FALSE;
+  $row_keys = 0;
+  foreach ($expectedFirstRow as $rowName) {
+    if (isset($csvFile->rows[0][$row_keys]) && (trim($csvFile->rows[0][$row_keys]) != trim($rowName))) {
+      $errors[] = 'Header #' . $row_keys .': ' . $csvFile->rows[0][$row_keys] . ': ' . strlen($csvFile->rows[0][$row_keys]).' != '.$rowName.': '.strlen($rowName);
+      $not_valid = TRUE;
+      break;
+    }
+    $row_keys++;
+  }
+
+  if ($not_valid) {
+    // The file is not valid.
+    $result->message = 'not_acceptable';
+    $result->errors = $errors;
+    return $result;
+  }
+
+  $result->pass = TRUE;
+  $result->rows = $csvFile->rows;
+  $result->message = 'ok';
+  return $result;
+}
+
+/**
+ * Parsing CSV file as rows.
+ */
+ function validateCsvFile($file_id, $validation) {
+  $result = new \stdClass();
+  $result->pass = FALSE;
+  $result->rows = FALSE;
+  $result->message = 'not_implemented';
+  $errors = [];
+
+  $csvFile = readCsvFile($file_id);
+  if (!$csvFile->pass) {
+    $csvFile->errors = [$csvFile->message];
+    return $csvFile;
+  }
+
+  // Validating the first row.
+  $expectedFirstRow = $validation['headers'];
+  $not_valid = FALSE;
+  $row_keys = 0;
+  foreach ($expectedFirstRow as $rowName) {
+    if (isset($csvFile->rows[0][$row_keys]) && (trim($csvFile->rows[0][$row_keys]) != trim($rowName))) {
+      $errors[] = 'Header #' . $row_keys .': ' . $csvFile->rows[0][$row_keys] . ': ' . strlen($csvFile->rows[0][$row_keys]).' != '.$rowName.': '.strlen($rowName);
+      $not_valid = TRUE;
+      break;
+    }
+    $row_keys++;
+  }
+
+  if ($not_valid) {
+    // The file is not valid.
+    $result->message = 'not_acceptable';
+    $result->errors = $errors;
+    return $result;
+  }
+
+  $result->pass = TRUE;
+  $result->rows = $csvFile->rows;
+  $result->message = 'ok';
+  return $result;
+}
+
+/**
+ * Getting CSV details for specific data.
+ */
+ function csvDetails($data_name = FALSE) {
+  $result = new \stdClass();
+  $result->pass = FALSE;
+  $result->data = FALSE;
+  $result->message = 'not_implemented';
+  $result->options = [];
+
+  $details = [];
+  $vocabularies = Vocabulary::loadMultiple();
+
+  if (count($vocabularies) > 0) {
+    $allowed_vocabularies = [
+      'certificates',
+      'certificate_levels',
+      'organization_types',
+      // 'education_organizations',
+      'qualifications',
+    ];
+    foreach ($vocabularies as $key => $vocabulary) {
+      if (!in_array($vocabulary->id(), $allowed_vocabularies)) {
+        continue;
+      }
+      // Count vocabulary terms.
+      $terms = \Drupal::entityQuery('taxonomy_term')
+        ->condition('vid', $vocabulary->id())
+        ->execute();
+      $details[$vocabulary->id()] = [
+        'name' => $vocabulary->label(),
+        'count' => count($terms),
+        'headers' => [
+          'taxonomy' => 'taxonomy',
+          'code' => 'code',
+          'name' => 'name',
+          'name_en' => 'name_en',
+          'description' => 'description',
+          'parent' => 'parent',
+        ],
+        'titles' => [
+          'taxonomy' => (string) t('Vocabulary name'),
+          'code' => (string) t('Machine name'),
+          'name' => (string) t('Name'),
+          'name_en' => (string) t('English name'),
+          'description' => (string) t('Description'),
+          'parent' => (string) t('Child of'),
+        ],
+      ];
+
+      $result->options[$vocabulary->id()] = $vocabulary->label() . ' (' . count($terms) . ')';
+    }
+  }
+
+  if (isset($details['certificates'])) {
+    $details['certificates']['titles']['short_name'] = (string) t('Short English name');
+    $details['certificates']['headers']['short_name'] = 'short_name';
+  }
+
+  if (isset($details['certificate_levels'])) {
+    $details['certificate_levels']['titles']['price'] = (string) t('Total price');
+    $details['certificate_levels']['headers']['price'] = 'price';
+    $details['certificate_levels']['titles']['certificate_code'] = (string) t('Certificate code');
+    $details['certificate_levels']['headers']['certificate_code'] = 'certificate_code';
+    $details['certificate_levels']['titles']['competency_codes'] = (string) t('Competency codes');
+    $details['certificate_levels']['headers']['competency_codes'] = 'competency_codes';
+    $details['certificate_levels']['titles']['requirements'] = (string) t('Level requirements');
+    $details['certificate_levels']['headers']['requirements'] = 'requirements';
+  }
+
+  if (isset($details[$data_name])) {
+    $result->pass = TRUE;
+    $result->data = $details[$data_name];
+    $result->message = 'ok';
+  }
+  return $result;
+}
